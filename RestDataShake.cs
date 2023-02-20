@@ -56,6 +56,7 @@ namespace DataShakeApiLocobuzz
             return response;
         }
 
+
         public async Task<LocobuzzResponse> RestAddProfileBulk(IConfiguration config, List<BulkUrl> url)
         {
             LocobuzzResponse response;

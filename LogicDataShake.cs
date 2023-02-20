@@ -1,10 +1,10 @@
-﻿using com.sun.tools.javac.jvm;
+﻿
 using DataShakeApiLocobuzz.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NPOI.SS.Formula.Functions;
+//using NPOI.SS.Formula.Functions;
 using RestSharp;
 using System;
 using System.Collections.Generic;
@@ -27,10 +27,12 @@ namespace DataShakeApiLocobuzz
         }
 
         Logging log = new Logging();
+        DataShakeWrapper wrapper = new DataShakeWrapper();
 
+        /*
         public async Task<LocobuzzResponse> Logic()
         {
-            /*
+      //      /*
             LocobuzzResponse response;
             try
             {
@@ -65,7 +67,7 @@ namespace DataShakeApiLocobuzz
                 response = new(false, null, ex.Message);
             }
             return response;
-            */
+       //    
 
 
 
@@ -75,6 +77,8 @@ namespace DataShakeApiLocobuzz
             {
                 //LocobuzzResponse result;
                 Console.WriteLine("In Logic");
+
+                /*
                 string filePath = @"D:\\locobuzz\\DataShakeApiLocobuzz\\Input.txt";
                 string text = string.Empty;
                 Console.WriteLine("Reading from file.");
@@ -85,22 +89,36 @@ namespace DataShakeApiLocobuzz
                 }
                 Console.WriteLine(text);
                 List<string> urls = text.Split(',').ToList();
-                foreach(string url in urls)
+                
+
+                LocobuzzResponse resultWrapper = wrapper.GetAllUrls(config).Result;
+                if(resultWrapper != null && resultWrapper.Success)
                 {
-                    Console.WriteLine(url);
-                    LocobuzzResponse result = new(false, null, null);
-                    Thread thread = new Thread(() => { result = Logic1(url).Result; });
-                    thread.Start();
-                    if(result != null && result.Success == false)
+                    List<wrapperUrl> urls = (List<wrapperUrl>)resultWrapper.Data;
+
+                    var urlsGroupedById = urls.GroupBy(url => url.brandId);
+
+                    foreach (var urlItem in urls)
                     {
-                        response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                        Console.WriteLine(urlItem);
+                        LocobuzzResponse result = new(false, null, null);
+                        Thread thread = new Thread(() => { result = Logic1(url).Result; });
+                        thread.Start();
+                        if (result != null && result.Success == false)
+                        {
+                            response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                        }
+                        else
+                        {
+                            response = new(false, null, null);
+                        }
                     }
-                    else
-                    {
-                        response = new(false, null, null);
-                    }
+                    response = new(true, null, null);
                 }
-                response = new(true, null, null);
+                else
+                {
+                    response = new(false, "", "");
+                }
             }
             catch(Exception ex)
             {
@@ -111,68 +129,75 @@ namespace DataShakeApiLocobuzz
             }
             return response;
 
-
-
         }
+        */
 
-        public async Task<LocobuzzResponse> LogicBulk()
+
+        public async Task<LocobuzzResponse> BulkUrl()
         {
             LocobuzzResponse response;
             try
             {
                 //LocobuzzResponse result;
                 Console.WriteLine("In Logic");
-                string filePath = @"D:\\locobuzz\\DataShakeApiLocobuzz\\Input.txt";
-                string text = string.Empty;
-                Console.WriteLine("Reading from file.");
-                if (File.Exists(filePath))
+                LocobuzzResponse resultWrapper = wrapper.GetAllUrls(this.config).Result;
+                List<Review> reviews = new List<Review>();  
+                if (resultWrapper != null && resultWrapper.Success)
                 {
-                    text = File.ReadAllText(filePath);
-                    Console.WriteLine(text);
-                }
-                Console.WriteLine(text);
-                List<string> urls = text.Split(',').ToList();
-                List<string> urlList = new List<string>();
-                List<BulkUrl> bulkurl = new List<BulkUrl>();
-                int count = 0;
-                foreach(string url in urls)
-                {
-                    count++;
-                    urlList.Add(url);
-                    if(count == 10)
+                    List<wrapperUrl> urls = (List<wrapperUrl>)resultWrapper.Data;
+
+                    var urlsGroupedById = urls.GroupBy(url => url.brandId);
+                    int count = 0;
+                    bool check = true;
+                    List<string> urlList = new List<string>();
+                    foreach (var urlItem in urlsGroupedById)
                     {
-                        Console.WriteLine(url);
-                        LocobuzzResponse result = new(false, null, null);
-                        Thread thread = new Thread(() => { result = Logic1Bulk(urls).Result; });
-                        thread.Start();
-                        if (result != null && result.Success == false)
+                        foreach(var url in urlItem)
                         {
-                            response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                            count++;
+                            urlList.Add(url.url);
+                            if (count == 10)
+                            {
+                                Console.WriteLine(url);
+                                LocobuzzResponse result = new(false, null, null);
+                                Thread thread = new Thread(() => { result = BulkUrl1(urlList).Result; });
+                                thread.Start();
+                                if (result != null && result.Success == false)
+                                {
+                                    response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                                }
+                                else
+                                {
+                                    check = false;
+                                }
+                                urlList.Clear();
+                                count = 0;
+                            }
                         }
-                        else
+                        if (count > 0)
                         {
-                            response = new(false, null, null);
+                            Console.WriteLine(urlList);
+                            LocobuzzResponse result = new(true, "", "");
+                            Thread thread = new Thread(() => { result = BulkUrl1(urlList).Result; });
+                            thread.Start();
+                            if (result != null && result.Success == false)
+                            {
+                                reviews = (List<Review>)result.Data;
+                                response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                            }
+                            else
+                            {
+                                check = false;
+                            }
                         }
-                        urlList.Clear();
-                        count = 0;
                     }
-                }
-                foreach (string url in urls)
+                    if (!check) response = new(false, null, null);
+                    else response = new(true, "", reviews);
+                } 
+                else
                 {
-                    Console.WriteLine(url);
-                    LocobuzzResponse result = new(false, null, null);
-                    Thread thread = new Thread(() => { result = Logic1Bulk(urls).Result; });
-                    thread.Start();
-                    if (result != null && result.Success == false)
-                    {
-                        response = new(true, "Reviews fetched.", (List<Review>)result.Data);
-                    }
-                    else
-                    {
-                        response = new(false, null, null);
-                    }
+                    response = new(false, null, "");
                 }
-                response = new(true, null, null);
             }
             catch (Exception ex)
             {
@@ -235,14 +260,14 @@ namespace DataShakeApiLocobuzz
             return response;
         }
 
-        public async Task<LocobuzzResponse> Logic1Bulk(List<string> urls)
+        public async Task<LocobuzzResponse> BulkUrl1 (List<string> urls)
         {
             LocobuzzResponse response;
             try
             {
-                BulkUrl url = new BulkUrl();
+          //      BulkUrl url = new BulkUrl();
                 List<BulkUrl> bulkUrl = new List<BulkUrl>();
-                bulkUrl.Add(url);
+          //      bulkUrl.Add(url);
                 foreach(string item in urls)
                 {
                     BulkUrl url1 = new BulkUrl();

@@ -39,4 +39,20 @@ namespace DataShakeApiLocobuzz.Models
         public int status { get; set; }
         public string message { get; set; }
     }
+
+    class wrapperUrl
+    {
+        public string url { get; set; }
+        public string brandId { get; set; }
+    }
+
+    class wrapperUrls
+    {
+        public List<string> urls { get; set; }
+    }
+
+    class Urls
+    {
+        public List<wrapperUrls> brandUrls { get; set; }
+    }
 }
