@@ -65,14 +65,17 @@ namespace DataShakeApiLocobuzz
                 string AddProfileUrlBulk = config.GetSection("Url").GetValue<string>("AddProfileUrlBulk");
                 string spidermanToken = config.GetSection("Token").GetValue<string>("SpidermanToken");
                 string stringUrl = JsonConvert.SerializeObject(url);
+         //       string urlJson = JsonSerializer.Serialize(url);
                 var client = new RestSharp.RestClient(AddProfileUrlBulk);
                 var request = new RestRequest();
                 request.Method = Method.Post;
                 request.AddHeader("spiderman-token", spidermanToken);
                 request.AddHeader("content-type", "application/json");
-                request.AddParameter("application/json", stringUrl, ParameterType.RequestBody);
+                request.RequestFormat = DataFormat.Json; 
+                request.AddJsonBody(url);
+            //    request.AddParameter("url", stringUrl, ParameterType.RequestBody);
 
-                var result = client.Post(request);
+                var result = await client.PostAsync(request.AddJsonBody(stringUrl));
                 Console.WriteLine(result.Content + "\n\n\n");
 
                 if (result.StatusCode == System.Net.HttpStatusCode.OK)
@@ -137,7 +140,7 @@ namespace DataShakeApiLocobuzz
             return response;
         }
 
-        public async Task<LocobuzzResponse> RestGetReviews(IConfiguration config, int jobid)
+        public async Task<LocobuzzResponse> RestGetReviews(IConfiguration config, int jobid,int page_number)
         {
             LocobuzzResponse response;
             try
@@ -149,6 +152,8 @@ namespace DataShakeApiLocobuzz
                 request.Method = Method.Get;
                 request.AddHeader("spiderman-token", SpidermanToken);
                 request.AddParameter("job_id", jobid);
+                request.AddParameter("page", page_number);
+                request.AddParameter("per_page", 500);
 
                 var result = client.Execute(request);
                 if (result.StatusCode == System.Net.HttpStatusCode.OK)

@@ -54,7 +54,7 @@ namespace DataShakeApiLocobuzz.Models
         public int? credits_used { get; set; }
         public object? from_date { get; set; }
         public object? blocks { get; set; }
-        public Review[]? reviews { get; set; }
+        public List<Review>? reviews { get; set; }
     }
 
     public class ProfileData
