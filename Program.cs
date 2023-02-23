@@ -14,35 +14,6 @@ namespace DataShakeApiLocobuzz
             Program.setInitialConfig();
             LogicDataShake obj = new LogicDataShake(config, logger);
             LocobuzzResponse result = obj.BulkUrl().Result;
-            /*
-            LocobuzzResponse result = obj.AddProfile(config, logger).Result;
-            //    int jobId = LogicDataShake.AddProfile(config, logger);
-            if(result != null && result.Success == true)
-            {
-                int jobId = (int)result.Data;
-                LocobuzzResponse result1 = obj.Reviews(config, logger, jobId).Result;
-                if(result1 != null && result1.Success == true)
-                {
-                    List<Review> reviews = (List<Review>)result1.Data;
-                    string OutputPath = "Reviews.txt";
-                    using (TextWriter tw = new StreamWriter(OutputPath))
-                    {
-                        foreach (var item in reviews)
-                        {
-                            tw.WriteLine(item);
-                        }
-                    }
-                } 
-                else
-                {
-                    Console.WriteLine("Error Occured " + (string)result.Message);
-                }                
-            }
-            else
-            {
-                Console.WriteLine("Error Occured " + (string)result.Message);
-            }
-            */
             
         }
 
