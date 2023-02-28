@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -36,6 +37,7 @@ namespace DataShakeApiLocobuzz
             {
                 Console.WriteLine("In Logic");
                 LocobuzzResponse resultWrapper = wrapper.GetAllUrls(this.config).Result;
+                Console.WriteLine(resultWrapper.Data);
                 List<Review> reviews = new List<Review>(); 
                 string message = "";
                 if (resultWrapper != null && resultWrapper.Success)
@@ -43,10 +45,14 @@ namespace DataShakeApiLocobuzz
                     List<wrapperUrl> urls = (List<wrapperUrl>)resultWrapper.Data;
                     
                     var urlsGroupedById = urls.GroupBy(url => url.brandId);
+                    var group1 = urlsGroupedById.First();
                     int count = 0;
                     bool check = true;
                     List<string> urlList = new List<string>();
                     List<string> urlFailed = new List<string>();
+
+                    
+
                     foreach (var urlItem in urlsGroupedById)
                     {
                         foreach(var url in urlItem)
@@ -121,6 +127,7 @@ namespace DataShakeApiLocobuzz
                             }
                         }
                     }
+
                     if (!check) response = new(false, null, message);
                     else response = new(true, "", reviews);
                 } 
@@ -139,6 +146,54 @@ namespace DataShakeApiLocobuzz
             return response;
         }
 
+
+        public async Task<LocobuzzResponse> BulkUrlWrapper(List<string> urls)
+        {
+            LocobuzzResponse response;
+            try
+            {
+                LocobuzzResponse result = BulkUrl1(urls).Result;
+                /*
+                List<object> data = (List<object>)result.Data;
+                List<string> urlAdded = (List<string>)data[0];
+                List<string> urlNotAdded = (List<string>)data[1];
+                bool check = true;
+                string message = "";
+                List<Review> reviews = new List<Review>();
+
+                if (result != null && result.Success == false)
+                {
+                    reviews = (List<Review>)result.Data;
+                    //      Console.WriteLine("Reviews fetched ")
+                    
+                }
+                else
+                {
+                    message = result.Message;
+                    urlNotAdded = (List<string>)result.Data;
+                    check = false;
+                }
+                Console.Write("Reviews fetched for URLS:\n");
+                foreach (var item in urlAdded)
+                {
+                    Console.WriteLine(item);
+                }
+                Console.Write("Reviews not fetched for URLS:\n");
+                foreach (var item in urlNotAdded)
+                {
+                    Console.WriteLine(item);
+                }
+                */
+            //    response = new(true, "Reviews fetched.", (List<Review>)result.Data);
+                response = new(true, "Reviews fetched.", null);
+            }
+            catch(Exception ex)
+            {
+                response = new(false, ex.Message, null);
+            }
+            return response;
+            
+        }
 
         public async Task<LocobuzzResponse> BulkUrl1 (List<string> urls)
         {
@@ -159,10 +214,24 @@ namespace DataShakeApiLocobuzz
                     url1.Url = item;
                     bulkUrl.Add(url1);
                 }
+
+
+                List<BulkUrlBlock> bulkUrlBlock = new List<BulkUrlBlock>();
+                string messageBlock = "";
+                foreach (string item in urls)
+                {
+                    BulkUrlBlock url1 = new BulkUrlBlock();
+                    url1.Url = item;
+                    url1.blocks = 2;
+                    bulkUrlBlock.Add(url1);
+                }
+
+
                 List<Review> reviewsArray = new List<Review>();
                 bool check = true;
                 
-                LocobuzzResponse result = AddProfileBulk(bulkUrl).Result;
+                LocobuzzResponse result = AddProfileBulk(bulkUrlBlock).Result;
+                Console.WriteLine("Profiles added in bulk");
                 List<object> data = (List<object>)result.Data;
                 if (result != null && result.Success == true)
                 {
@@ -171,6 +240,24 @@ namespace DataShakeApiLocobuzz
                     List<string> UrlSuccess = (List<string>)data[1];
                     SemaphoreSlim semaphoreSlim = new SemaphoreSlim(8);
                     //         int jobId = (int)result.Data;
+                    int count = 0;
+                    Console.WriteLine("UrlSuccess count: " + UrlSuccess.Count);
+                    foreach(var jobid in job_Ids)
+                    {
+                        semaphoreSlim.Wait();
+                        Console.WriteLine("Count: " + count);
+                        Console.WriteLine("Job id fetched: " + job_Ids[count]);
+                        Console.WriteLine("Url: " + UrlSuccess[count]);
+                        int jobId = job_Ids[count];
+                        string url = UrlSuccess[count];
+                        Console.WriteLine("Calling Reviews method for jobid: " + job_Ids[count]);
+                        LocobuzzResponse result1 = new(true, "", "");
+                        Thread t = new Thread(() => { ReviewsWrapper(jobId, semaphoreSlim, url); });
+                        t.Start();
+                        count++;
+                    }
+
+                    /*
                     for (int i=0;i< job_Ids.Count;i++) 
                     {
                      //   URLS.Add(job_Ids[i], UrlSuccess[i]);
@@ -179,48 +266,26 @@ namespace DataShakeApiLocobuzz
                         Console.WriteLine("Job id fetched: " + job_Ids[i]);
                         Console.WriteLine("Calling Reviews method for jobid: " + job_Ids[i]);
                         LocobuzzResponse result1 = new(true, "" ,"");
-                        Thread t = new Thread(() => { result1 = Reviews(job_Ids[i], semaphoreSlim).Result; } );
+                        Thread t = new Thread(() => { ReviewsWrapper(job_Ids[i], semaphoreSlim, UrlSuccess[i]); } );
                         t.Start();
-                        reviewsArray = (List<Review>)result.Data;
-                  //      LocobuzzResponse result1 = Reviews(jobId).Result;
-                        Console.WriteLine("logic1");
-                        
-                        
-                        if (result1 != null && result1.Success == true)
-                        {
-                            urlAdded.Add(UrlSuccess[i]);
-                            List<Review> reviews = (List<Review>)result1.Data;
-                            string OutputPath = "D:\\locobuzz\\DataShakeApiLocobuzz\\Reviews.txt";
-                            using (StreamWriter tw = new StreamWriter(OutputPath))
-                            {
-                                foreach (var item in reviews)
-                                {
-                                    string item1 = JsonConvert.SerializeObject(item);
-                                    tw.WriteLine(item1);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            urlFailed.Add(UrlSuccess[i]);
-                            check = false;
-                            message = result.Message;
-                            Console.WriteLine("Error Occured " + (string)result.Message);
-                            
-                        }
                     }
-                    urlFailed.AddRange((List<string>)data[1]);
-                    dataResponse.Add(urlAdded);
-                    dataResponse.Add(urlFailed);
+                    */
+      //              urlFailed.AddRange((List<string>)data[1]);
+      //              dataResponse.Add(urlAdded);
+      //              dataResponse.Add(urlFailed);
                     if (!check) response = new(false, message, dataResponse);
-                    else response = new(true, "All reviews fetched for the current thread.", reviewsArray);
+                    else response = new(true, "All reviews fetched for the current thread.", null);
                 }
                 else
                 {
-                    urlFailed = urls;
-                    urlFailed.AddRange((List<string>)data[1]);
-                    dataResponse.Add(urlAdded);
-                    dataResponse.Add(urlFailed);
+                    foreach(var url in urls)
+                    {
+                        Console.WriteLine("Review could not be fetched for: "+ url);
+                    }
+     //               urlFailed = urls;
+     //               urlFailed.AddRange((List<string>)data[1]);
+     //              dataResponse.Add(urlAdded);
+     //               dataResponse.Add(urlFailed);
                     Console.WriteLine("Error Occured " + (string)result.Message);
                     response = new(false, result.Message, dataResponse);
                 }
@@ -230,10 +295,59 @@ namespace DataShakeApiLocobuzz
                 this.logger.LogError(ex, "Adding Profile", null, new { });
                 Console.WriteLine("Error - " + ex + "\n");
                 log.log(ex.Message);
-                dataResponse.Add(urlAdded);
-                dataResponse.Add(urlFailed);
+     //           dataResponse.Add(urlAdded);
+     //           dataResponse.Add(urlFailed);
                 response = new(false, ex.Message, dataResponse);
             }
+            return response;
+        }
+
+        public async Task<LocobuzzResponse> ReviewsWrapper(int jobId, SemaphoreSlim semaphoreSlim, string url)
+        {
+            LocobuzzResponse response;
+            try
+            {
+                Console.WriteLine("In Reviews Wrapper.");
+                LocobuzzResponse result = Reviews(jobId, semaphoreSlim).Result;
+
+                List<Review> reviewsArray = (List<Review>)result.Data;
+                //      LocobuzzResponse result1 = Reviews(jobId).Result;
+                List<string> urlAdded = new List<string>();
+                List<string> urlFailed = new List<string>();
+                bool check = true;
+                string message = "";
+
+                if (result != null && result.Success == true)
+                {
+                    Console.WriteLine(" Reviews fetched for url: " + url);
+                    urlAdded.Add(url);
+                    List<Review> reviews = (List<Review>)result.Data;
+                    string OutputPath = "D:\\locobuzz\\DataShakeApiLocobuzz\\Reviews.txt";
+                    using (StreamWriter tw = new StreamWriter(OutputPath))
+                    {
+                        foreach (var item in reviews)
+                        {
+                            string item1 = JsonConvert.SerializeObject(item);
+                            tw.WriteLine(item1);
+                        }
+                    }
+                    response = new(true, "reviews added to file", reviews);
+                }
+                else
+                {
+                    Console.WriteLine("Reviews could not be fetched for url: " + url);  
+                    urlFailed.Add(url);
+                    check = false;
+                    message = result.Message;
+                    Console.WriteLine("Error Occured " + (string)result.Message);
+                    response = new(true, "Not added", null);
+                }
+            }
+            catch(Exception ex)
+            {
+                response = new(false, ex.Message, null);
+            }
+            semaphoreSlim.Release();
             return response;
         }
 
@@ -277,7 +391,7 @@ namespace DataShakeApiLocobuzz
             return response;
         }
 
-        public async Task<LocobuzzResponse> AddProfileBulk(List<BulkUrl> url)
+        public async Task<LocobuzzResponse> AddProfileBulk(List<BulkUrlBlock> url)
         {
             LocobuzzResponse response;
             List<string> urls = url.Select(url => url.Url).ToList();
@@ -400,6 +514,7 @@ namespace DataShakeApiLocobuzz
 
         public async Task<LocobuzzResponse> GetReviews(int jobId, int max_no_of_pages)
         {
+            Console.WriteLine("In Get reviews");
             LocobuzzResponse response;
             RestDataShake obj = new RestDataShake();
             try
@@ -412,6 +527,7 @@ namespace DataShakeApiLocobuzz
                 {
                     LocobuzzResponse result = obj.RestGetReviews(this.config, jobId, i).Result;
                     string data = (string)result.Data;
+                    Console.WriteLine("Retrieved data:\n" + data);
                     if (result != null && result.Success == true)
                     {
                         Root profileInfo = JsonConvert.DeserializeObject<Root>(data);
@@ -448,6 +564,7 @@ namespace DataShakeApiLocobuzz
                 {
                     ProfileData profile = (ProfileData)result.Data;
                     string status = profile.crawl_status;
+                    Console.WriteLine(status);
                     if (status == "pending")
                     {
                         Console.WriteLine("intervalPending");
@@ -476,10 +593,13 @@ namespace DataShakeApiLocobuzz
                         float percentage_complete = (float)profile.percentage_complete;
                         if (percentage_complete == 100.0f)
                         {
+                            Console.WriteLine("Crawling completed.");
+                            Console.WriteLine(profile.review_count);
                             response = new(true, "Crawling completed", (int)profile.review_count); // "Crawling has completed.Now you can fetch reviews.";
                         }
                         else
                         {
+                            Console.WriteLine("Checking percentage_completed now.");
                             int IntervalComplete = config.GetSection("Interval").GetValue<int>("IntervalComplete");
                             Console.WriteLine("intervalComplete");
                             Thread.Sleep(IntervalComplete);
@@ -528,6 +648,7 @@ namespace DataShakeApiLocobuzz
                 LocobuzzResponse result = CheckStatus(jobId).Result;
                 if (result != null && result.Success == true)
                 {
+                    Console.WriteLine(result.Data);
                     if ((int)result.Data != -1)
                     {
                         int reviewsCount = (int)result.Data;
@@ -546,7 +667,7 @@ namespace DataShakeApiLocobuzz
                 {
                     response = new(false, null, null);
                 }
-                semaphoreSlim.Release();
+              //  semaphoreSlim.Release();
             }
             catch (Exception ex)
             {
